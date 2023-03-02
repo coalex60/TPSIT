@@ -1059,6 +1059,7 @@ void StartTask2(void *argument)
   /* Infinite loop */
   for(;;)
   {
+
     osDelay(1);
   }
   /* USER CODE END StartTask2 */
