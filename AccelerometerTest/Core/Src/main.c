@@ -1056,9 +1056,6 @@ void StartTask1(void *argument)
 void StartTask2(void *argument)
 {
   /* USER CODE BEGIN StartTask2 */
-	calibVal datahts;
-	hts221_init(&i2c);
-	hts221_ReadCal (&i2c,&datahts);
   /* Infinite loop */
   for(;;)
   {
