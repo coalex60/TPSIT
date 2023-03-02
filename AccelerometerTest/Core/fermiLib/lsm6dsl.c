@@ -12,7 +12,7 @@
 
 int16_t lsm6dsReadId(i2c_transaction * i2cdata, int16_t * id)
 {
-	int16_t ret,reg=0x0F,val;//register whoami
+	int16_t ret,reg=0x0F,val;		//register whoami
 	i2cdata->rx_buf = (void *) & ret;
 	i2cdata->rx_len = 1;
 	i2cdata->tx_buf = (void *) &reg;
@@ -26,20 +26,75 @@ return val;
 int16_t lms6dsInit(i2c_transaction * i2cdata)
 {
 
-int8_t reg[10][2]={{0x10,0x60},{0x11,0x60},{0x12,0x44},{0x13,0x0},{0x14,0x0},{0x15,0x0},{0x16,0x0},
-		{0x17,0x0},{0x18,0x0},{0x19,0x0}};
-//CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 400Hz
-//CTRL2_G  ORD = 416Hz ,Fullscale = 250dps
-//CTRL3_C = BDU, SIM,IF_INC
-//CTRL4_C = 0  , CTRL5_C =0
-//CTRL6_C = 0 ,  CTRL7_G = 0
-//CTRL8_XL =0 , CTRL9_XL =0
-//CTRL10_C = 0
+int8_t reg[10][2]={	// CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 1.5 KHz
+					{0x10,0x60},
+
+					// CTRL2_G  ORD = 416Hz ,Fullscale = 250dps
+					{0x11,0x60},
+
+
+					{0x12,0x44},
+
+
+					{0x13,0x0},
+
+
+					{0x14,0x0},
+
+
+					{0x15,0x0},
+
+
+					{0x16,0x0},
+
+
+					{0x17,0x0},
+
+					{0x18,0x0},
+
+					{0x19,0x0}
+				   };
+
+	//INT1_CTRL = INT1_DRDY_G + INT1_DRDY_XL
+	uint8_t  INT1_CTRL[2] = {0x0D,0x03};
+
+	// CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 1.5 KHz
+	uint8_t CTRL1_XL[2] = {0x10,0x60}
+
+	// CTRL2_G  ORD = 416Hz ,Fullscale = 250dps
+	uint8_t CTRL2_G[2]	= {0x11,0x60}
+
+	// CTRL3_C = BDU, SIM,IF_INC
+	uint8_t CTRL3_C[2]	= {0x12,0x44}
+
+	// CTRL4_C = 0
+	//uint8_t CTRL4_C[2]	= {0x13,0x0}
+
+	// CTRL5_C = 0
+	//uint8_t CTRL5_C[2]	= {0x14,0x0}
+
+	// CTRL6_C = 0
+	//uint8_t CTRL6_C[2]	= {0x15,0x0}
+
+	// CTRL7_G = 0
+	//uint8_t CTRL7_G[2]	= {0x16,0x0}
+
+	// CTRL8_XL = 0
+	//uint8_t CTRL8_XL[2]	= {0x17,0x0}
+
+	// CTRL9_XL = 0
+	//uint8_t CTRL9_XL[2]	= {0x18,0x0}
+
+	// CTRL10_C = 0
+	//uint8_t CTRL10_C[2]	= {0x19,0x0}
+
+
+
 osDelay(100);
 int regint[2]={0x0D,0x03};
 //INT1_CTRL = INT1_DRDY_G + INT1_DRDY_XL
 int i,val;
-for (i =0 ;i < 10; i++)
+for (i = 0 ;i < 10; i++)
 	{
 	i2cdata->rx_len=0;
 	i2cdata->rx_buf = NULL;
@@ -48,6 +103,7 @@ for (i =0 ;i < 10; i++)
 	val = i2c_transfer(i2cdata);
 	if (val) return 1;
 	}
+
 i2cdata->rx_len=0; //enable interrupt
 i2cdata->rx_buf = NULL;
 i2cdata->tx_buf= (void *) regint;
