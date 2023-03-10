@@ -55,17 +55,14 @@ int8_t reg[10][2]={	// CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 
 					{0x19,0x0}
 				   };
 
-	//INT1_CTRL = INT1_DRDY_G + INT1_DRDY_XL
-	uint8_t  INT1_CTRL[2] = {0x0D,0x03};
-
 	// CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 1.5 KHz
-	uint8_t CTRL1_XL[2] = {0x10,0x60}
+	//uint8_t CTRL1_XL[2] = {0x10,0x60};
 
 	// CTRL2_G  ORD = 416Hz ,Fullscale = 250dps
-	uint8_t CTRL2_G[2]	= {0x11,0x60}
+	//uint8_t CTRL2_G[2]	= {0x11,0x60};
 
 	// CTRL3_C = BDU, SIM,IF_INC
-	uint8_t CTRL3_C[2]	= {0x12,0x44}
+	//uint8_t CTRL3_C[2]	= {0x12,0x44};
 
 	// CTRL4_C = 0
 	//uint8_t CTRL4_C[2]	= {0x13,0x0}
@@ -91,7 +88,7 @@ int8_t reg[10][2]={	// CTRL1_XL ODR = 416Hz, Fullscale = +-2g,Bandwith =0,BWo = 
 
 
 osDelay(100);
-int regint[2]={0x0D,0x03};
+uint8_t regint[2]={0x0D,0x03};
 //INT1_CTRL = INT1_DRDY_G + INT1_DRDY_XL
 int i,val;
 for (i = 0 ;i < 10; i++)
