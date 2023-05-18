@@ -108,6 +108,7 @@ const osSemaphoreAttr_t i2c1BinarySem_attributes = {
 osSemaphoreId_t i2c2BinarySemHandle;
 const osSemaphoreAttr_t i2c2BinarySem_attributes = {
   .name = "i2c2BinarySem"
+		  //test
 };
 /* USER CODE BEGIN PV */
 //HARDware charateristics service
