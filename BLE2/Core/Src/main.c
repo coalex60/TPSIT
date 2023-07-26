@@ -120,7 +120,7 @@ uint8_t HW_Char_Envir_UUID[16] ={0x01b,0xc5,0xd5,0xa5,0x02,0x00,0x36,0xac,0xe1,0
 uint16_t HWServW2STHandle, EnvironmentalCharHandle;
 //data
 uint8_t connected = FALSE,connectable = TRUE, notification_enabled = FALSE;
-uint8_t bdaddr[6];
+uint8_t bdaddr[6];//mac address of bluetooth device
 calibVal cal; //calibration value for temperature sensor
 volatile uint16_t connection_handle = 0;
 volatile uint8_t set_connectable = 1;
@@ -212,6 +212,8 @@ int main(void)
   hci_reset();
   ret = aci_gatt_init();
   //role GAP_PERIPHERAL_ROLE_IDB05A1,no privacy,length name = 8
+  //Register the GAP service with the GATT. All the standard GAP characteristics will also be added:
+  //•Device Name  //•Appearance //•Peripheral Preferred Connection Parameters (peripheral role only)
   ret = aci_gap_init_IDB05A1(GAP_PERIPHERAL_ROLE_IDB05A1,PRIVACY_DISABLED,0x08,&service_handle,&dev_name_char_handle,&appearance_char_handle);
   //read configuration data
   ret = aci_hal_read_config_data(CONFIG_DATA_RANDOM_ADDRESS, 6, &bdaddr_len_out, bdaddr);
@@ -1182,7 +1184,7 @@ bdaddr[1],
 bdaddr[0]//Ble address
 };
 manuf_data[18]|=0x01; //Sensor fusion ?
-
+//Used to set the data used in advertising packets that have a data field.
 hci_le_set_scan_resp_data(0,NULL);//?
 //set General discoverable Mode
 ret = aci_gap_set_discoverable(ADV_DATA_TYPE,(ADV_INTERVAL_MIN_MS * 1000)/625, (ADV_INTERVAL_MAX_MS * 1000)/625,
