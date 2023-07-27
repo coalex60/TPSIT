@@ -4,6 +4,7 @@
   * @file           : main.c
   * @brief          : Main program body
   ******************************************************************************
+  * Demo App
   * @attention
   *
   * Copyright (c) 2023 STMicroelectronics.
