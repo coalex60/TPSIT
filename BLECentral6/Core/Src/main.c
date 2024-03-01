@@ -22,10 +22,21 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "bluenrg_gap.h"
+#include "bluenrg_aci_const.h"
+#include "hci.h"
+#include "hci_le.h"
+#include "sm.h"
+#include "hci_tl.h"
+#include "bluenrg_utils.h"
+#include "bluenrg_gatt_server.h"
+#include "bluenrg_gap_aci.h"
+#include "bluenrg_gatt_aci.h"
+#include "bluenrg_hal_aci.h"
+#include "string.h"
+#include "stdio.h"
 #include "i2c.h"
-
-#include "../SSD1306/ssd1306.h"
-#include "../SSD1306/ssd1306_fonts.h"
+#include "ssd1306.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,6 +46,25 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/*mac della scheda cui devo collegarmi*/
+//uint8_t ESP32_DOIT_MAC[6]={0x08,0x3A,0xF2,0x50,0xE2,0xAA};
+//INVERTED SERVER(Pheriferial) ADDRESS
+uint8_t ESP32_DOIT_MAC[6]={0xAA,0xE2,0x50,0xF2,0x3A,0x08};//inverted esp32 server address
+uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
+uint8_t setconnectable = TRUE;//connectable flag
+uint8_t connected  = FALSE; //connected flag
+uint16_t connection_handle;  //connection handle
+uint8_t end_read_rx_char_handle=FALSE,start_read_rx_char_handle=FALSE;//flag for reading each characteristics
+uint8_t notification_enabled = FALSE;//flag notification enabing
+uint16_t rx_handle[3]={0,0,0}; //array of three handle of characteristics
+uint8_t char_no=0;//number of characteristic {0 = temperature,1= pressure,2=humidity
+uint8_t end_of_global_read = FALSE; //flag for start and end of reading characteristics
+uint8_t end_print = FALSE;//flag for end of print out data over serial terminal
+uint8_t Characteristics[3][2] = {{0x6E,0x2A},{0x6D,0x2A},{0x6F,0x2A}}; //array with UUID in short format (order inverted)
+i2c_transaction display;
+char temperature[10];//temperature
+char pressure[10];//pressure
+char humidity[10];//humidity
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,26 +83,30 @@ I2C_HandleTypeDef hi2c2;
 OSPI_HandleTypeDef hospi1;
 
 SPI_HandleTypeDef hspi1;
-SPI_HandleTypeDef hspi3;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+/* Definitions for Task1proc */
+osThreadId_t Task1procHandle;
+const osThreadAttr_t Task1proc_attributes = {
+  .name = "Task1proc",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for Task2proc */
+osThreadId_t Task2procHandle;
+const osThreadAttr_t Task2proc_attributes = {
+  .name = "Task2proc",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for myTask02 */
-osThreadId_t myTask02Handle;
-const osThreadAttr_t myTask02_attributes = {
-  .name = "myTask02",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+/* Definitions for Mut */
+osMutexId_t MutHandle;
+const osMutexAttr_t Mut_attributes = {
+  .name = "Mut"
 };
 /* Definitions for i2c1Mutex */
 osMutexId_t i2c1MutexHandle;
@@ -94,6 +128,11 @@ osSemaphoreId_t i2c2BinarySemHandle;
 const osSemaphoreAttr_t i2c2BinarySem_attributes = {
   .name = "i2c2BinarySem"
 };
+/* Definitions for T2Sem */
+osSemaphoreId_t T2SemHandle;
+const osSemaphoreAttr_t T2Sem_attributes = {
+  .name = "T2Sem"
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -108,7 +147,6 @@ static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_SPI3_Init(void);
 static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
@@ -118,12 +156,18 @@ void Task1(void *argument);
 void Task2(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+void user_notify(void * pData);
+void MX_BlueNRG_MS_Init(void);
+void User_Process(void);
+void GAP_ConnectionComplete_CB(uint8_t addr[6], uint16_t handle);
+void enableNotification(void);
+void GATT_Notification_CB(uint16_t attr_handle, uint8_t attr_len, uint8_t *attr_value);//callback function
+void receiveData(uint16_t attr_handle,uint8_t* data_buffer, uint8_t Nb_bytes);//ricezione dati
+void GAP_DisconnectionComplete_CB(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-i2c_transaction data;
 
 /* USER CODE END 0 */
 
@@ -143,6 +187,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+
 
   /* USER CODE END Init */
 
@@ -164,19 +209,24 @@ int main(void)
   MX_I2C2_Init();
   MX_OCTOSPI1_Init();
   MX_SPI1_Init();
-  MX_SPI3_Init();
   MX_UART4_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_USB_Init();
   /* USER CODE BEGIN 2 */
+  //init BlueTooth Module
+  MX_BlueNRG_MS_Init();//inizializzazione BlueTooth
+
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();
   /* Create the mutex(es) */
+  /* creation of Mut */
+  MutHandle = osMutexNew(&Mut_attributes);
+
   /* creation of i2c1Mutex */
   i2c1MutexHandle = osMutexNew(&i2c1Mutex_attributes);
 
@@ -194,6 +244,9 @@ int main(void)
   /* creation of i2c2BinarySem */
   i2c2BinarySemHandle = osSemaphoreNew(1, 1, &i2c2BinarySem_attributes);
 
+  /* creation of T2Sem */
+  T2SemHandle = osSemaphoreNew(1, 1, &T2Sem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -207,11 +260,11 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(Task1, NULL, &defaultTask_attributes);
+  /* creation of Task1proc */
+  Task1procHandle = osThreadNew(Task1, NULL, &Task1proc_attributes);
 
-  /* creation of myTask02 */
-  myTask02Handle = osThreadNew(Task2, NULL, &myTask02_attributes);
+  /* creation of Task2proc */
+  Task2procHandle = osThreadNew(Task2, NULL, &Task2proc_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -604,46 +657,6 @@ static void MX_SPI1_Init(void)
 }
 
 /**
-  * @brief SPI3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI3_Init(void)
-{
-
-  /* USER CODE BEGIN SPI3_Init 0 */
-
-  /* USER CODE END SPI3_Init 0 */
-
-  /* USER CODE BEGIN SPI3_Init 1 */
-
-  /* USER CODE END SPI3_Init 1 */
-  /* SPI3 parameter configuration*/
-  hspi3.Instance = SPI3;
-  hspi3.Init.Mode = SPI_MODE_MASTER;
-  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
-  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi3.Init.CRCPolynomial = 7;
-  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI3_Init 2 */
-
-  /* USER CODE END SPI3_Init 2 */
-
-}
-
-/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -989,12 +1002,279 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void MX_BlueNRG_MS_Init(void)
+{
+	 tBleStatus ret;
+	 char msg[30] = "GATT_Init failed.\r\n";
+	 char msg1[20] = "GAP_Init failed.\r\n";
+	 char msg2[30] = "BLE Stack Initialized.\r\n";
+	 hci_init(user_notify,NULL);
+	 hci_reset();
+	 ret = aci_gatt_init();
+	 if (ret) HAL_UART_Transmit(&huart1,(uint8_t *)msg,strlen(msg),20);
+	 ret = aci_gap_init_IDB05A1(GAP_CENTRAL_ROLE_IDB05A1, 0, 0x07, &service_handle, &dev_name_char_handle, &appearance_char_handle);
+	 if (ret != BLE_STATUS_SUCCESS) HAL_UART_Transmit(&huart1,(uint8_t *)msg1,strlen(msg1),20);
+	 ret = aci_gap_set_auth_requirement(MITM_PROTECTION_REQUIRED,
+	                                     OOB_AUTH_DATA_ABSENT,
+	                                     NULL,
+	                                     7,
+	                                     16,
+	                                     USE_FIXED_PIN_FOR_PAIRING,
+	                                     123456,
+	                                     BONDING);
+	 if (ret == BLE_STATUS_SUCCESS) HAL_UART_Transmit(&huart1,(uint8_t *)msg2,strlen(msg2),20);
+	 /* Set output power level */
+	  ret = aci_hal_set_tx_power_level(1,4);
+}
+
+void User_Process(void)
+{
+	tBleStatus ret;
+	uint8_t  tmp[2];
+	char msg[40]= "Error while starting connection.\r\n";
+	if (setconnectable)
+	{
+
+		ret = aci_gap_create_connection(SCAN_P, SCAN_L, PUBLIC_ADDR, ESP32_DOIT_MAC, PUBLIC_ADDR, CONN_P1, CONN_P2, 0,
+		                                    SUPERV_TIMEOUT, CONN_L1 , CONN_L2);
+		if (ret != 0){
+			HAL_UART_Transmit(&huart1,(uint8_t*)msg,strlen(msg),20);
+		    HAL_Delay(100);
+		} else setconnectable = FALSE;
+	}
+	/* Start RX handle Characteristic dynamic discovery if not yet done */
+	if (!end_of_global_read)
+	{
+			if (connected && !end_read_rx_char_handle){
+
+			tmp[0] = Characteristics[char_no][0];
+			tmp[1] = Characteristics[char_no][1];
+		  aci_gatt_disc_charac_by_uuid(connection_handle, 0x0001, 0xFFFF, UUID_TYPE_16, tmp);
+
+		  //aci_gatt_disc_charac_by_uuid(connection_handle, 0x0001, 0xFFFF, UUID_TYPE_16, TemperatureChar_UUID);
+			start_read_rx_char_handle = TRUE;
+			}
+			if (connected &&  end_read_rx_char_handle && !notification_enabled)
+			{
+	       //end of the connection and chars discovery phase
+				enableNotification();
+
+			}
+	}
+		if (end_print)
+			{
+			end_read_rx_char_handle = FALSE;
+			start_read_rx_char_handle = FALSE;
+			notification_enabled =FALSE;
+			end_print= FALSE;
+			char_no++;
+			}
+
+		if (char_no > 2)
+			{
+			end_of_global_read =TRUE;
+			notification_enabled = TRUE;//FALSE;
+			end_read_rx_char_handle = FALSE;
+			char_no = 0;
+			end_print = FALSE;
+
+			}
+
+
+}
+
+void user_notify(void *pData)
+{
+	char msg[10]="Resp CHar";
+	char msg1[50];
+	hci_uart_pckt *hci_pckt = pData;
+		  /* obtain event packet */
+	hci_event_pckt *event_pckt = (hci_event_pckt*)hci_pckt->data;
+	 if(hci_pckt->type != HCI_EVENT_PKT)
+	    return;
+	 switch(event_pckt->evt){
+
+	 //disconnesione
+	 case EVT_DISCONN_COMPLETE:
+	    {
+	      GAP_DisconnectionComplete_CB();
+	    }
+	    break;
+
+
+	 case EVT_LE_META_EVENT:
+	    {
+	      evt_le_meta_event *evt = (void *)event_pckt->data;
+
+	      switch(evt->subevent){
+	      case EVT_LE_CONN_COMPLETE:
+	        {
+	          evt_le_connection_complete *cc = (void *)evt->data;
+	          GAP_ConnectionComplete_CB(cc->peer_bdaddr, cc->handle);
+	        }
+	        break;
+	      }
+	    }
+	    break;
+	 case EVT_VENDOR:
+	 {
+		 evt_blue_aci *blue_evt = (void*)event_pckt->data;
+		 switch(blue_evt->ecode){
+		 case EVT_BLUE_GATT_NOTIFICATION://in caso di motifica da parte del server vengono letti i dati
+		 	 {
+		     evt_gatt_attr_notification *evt = (evt_gatt_attr_notification*)blue_evt->data;
+		     GATT_Notification_CB(evt->attr_handle, evt->event_data_length - 2, evt->attr_value);
+		     }
+		        break;
+
+		 case EVT_BLUE_GATT_DISC_READ_CHAR_BY_UUID_RESP:
+			 HAL_UART_Transmit(&huart1,(uint8_t *)msg,strlen(msg),20);
+			 evt_gatt_disc_read_char_by_uuid_resp *resp = (void*)blue_evt->data;
+			 if (start_read_rx_char_handle && !end_read_rx_char_handle)
+			           {
+			             rx_handle[char_no] = resp->attr_handle; //legge l'handle della caratteristica indicata
+			             sprintf(msg1,"RX Char Handle %04X\r\n", rx_handle[char_no]);
+			             HAL_UART_Transmit(&huart1,(uint8_t *)msg1,strlen(msg1),20);
+			           }
+		 break;
+		 case EVT_BLUE_GATT_PROCEDURE_COMPLETE:
+		 		 /* Wait for gatt procedure complete event trigger related to Discovery Charac by UUID */
+		 		//evt_gatt_procedure_complete *pr = (void*)blue_evt->data;
+
+			 	 	 if (start_read_rx_char_handle && !end_read_rx_char_handle)
+		 			 {
+		 			    end_read_rx_char_handle = TRUE;
+		 			 }
+		 break;
+
+		 }
+
+	 }
+	 break;
+}
+}
+//connessione completa; viene stampato il mac del dispositivo pheriferial(server) a cui
+//ci siamo connessi
+void GAP_ConnectionComplete_CB(uint8_t addr[6], uint16_t handle)
+{
+  connected = TRUE;
+  connection_handle = handle;
+  char msg[30] ="Connected to device :";
+  char str[6][2];
+  char rtcp[4]="\r\n";
+  HAL_UART_Transmit(&huart1,(uint8_t*)msg,strlen(msg),20);
+  for(int i = 5; i >= 0; i--){ //integer to hex string conversion
+	 sprintf(str[5-i],"%02X",addr[i]);
+   }
+  HAL_UART_Transmit(&huart1,(uint8_t *)str,12,20);//address transmission
+  HAL_UART_Transmit(&huart1,(uint8_t*)rtcp,4,20);//a capo
+}
+
+void enableNotification(void)
+{
+  uint8_t client_char_conf_data[] = {0x01, 0x00}; // Enable notifications
+
+  uint32_t tickstart = HAL_GetTick();
+
+  while(aci_gatt_write_charac_descriptor(connection_handle, rx_handle[char_no]+2, 2, client_char_conf_data)==BLE_STATUS_NOT_ALLOWED)
+  {
+    /* Radio is busy */
+    if ((HAL_GetTick() - tickstart) > (10*HCI_DEFAULT_TIMEOUT_MS)) break;
+  }
+
+
+  notification_enabled = TRUE;
+}
+
+void GATT_Notification_CB(uint16_t attr_handle, uint8_t attr_len, uint8_t *attr_value)
+{
+  if (attr_handle == rx_handle[0]+1) {
+    receiveData(attr_handle,attr_value, attr_len);
+  }
+  if (attr_handle == rx_handle[1]+1) {
+      receiveData(attr_handle,attr_value, attr_len);
+    }
+  if (attr_handle == rx_handle[2]+1) {
+      receiveData(attr_handle,attr_value, attr_len);
+    }
+}
+
+
+void receiveData(uint16_t attr_handle,uint8_t* data_buffer, uint8_t Nb_bytes)
+{
+uint16_t val,val2;
+uint8_t valint,valfra;
+uint8_t valh,valfrah;
+char * suffix;
+uint32_t press,pressint,pressfra;
+char output[8];
+if (attr_handle == rx_handle[0]+1)
+	{
+	suffix = " C";
+	val=(uint16_t)((uint16_t)data_buffer[1]<<8) + data_buffer[0];
+	valint = val / 100;
+	valfra = (val - valint *100);
+ 	sprintf(output,"%d.%02d%s\r\n",valint,valfra,suffix);
+	HAL_UART_Transmit(&huart1,(uint8_t*) output,strlen(output),20);
+    sprintf(temperature,"%s",output);
+
+	}
+if (attr_handle== rx_handle[2]+1)
+   {
+	suffix = " %";
+	val2=(uint16_t)((uint16_t)data_buffer[1]<<8) + data_buffer[0];
+	valh = val2 / 100;
+	valfrah = (val2 - valh *100);
+	sprintf(output,"%d.%02d%s\r\n",valh,valfrah,suffix);
+	HAL_UART_Transmit(&huart1,(uint8_t*) output,strlen(output),20);
+	sprintf(humidity,"%s",output);
+
+    }
+if 	(attr_handle== rx_handle[1]+1)
+   {
+	suffix = " mB";
+	press= (uint32_t)((uint32_t) data_buffer[3]<<24)+((uint32_t) data_buffer[2]<<16)+((uint32_t) data_buffer[1]<<8)+ data_buffer[0];
+	pressint = press /10;
+	pressfra = (press-pressint*10);
+	sprintf(output,"%ld.%01ld%s\r\n",pressint,pressfra,suffix);
+	HAL_UART_Transmit(&huart1,(uint8_t*) output,strlen(output),20);
+	sprintf(pressure,"%s",output);
+
+	}
+    //semaphore release only if have the three handles
+	if ((rx_handle[0] !=0) && (rx_handle[1] !=0) && (rx_handle[2] != 0)) osSemaphoreRelease(T2SemHandle);
+end_print = TRUE;
+}
+
+
+
+/**
+ * @brief  This function is called when the peer device get disconnected.
+ * @param  None
+ * @retval None
+ */
+void GAP_DisconnectionComplete_CB(void)
+{
+  char msg[20] ="Disconnected\n";
+  connected = FALSE;
+  HAL_UART_Transmit(&huart1,(uint8_t *)msg,strlen(msg),20);
+  /* Make the device connectable again. */
+  setconnectable = TRUE;
+  notification_enabled = FALSE;
+  start_read_rx_char_handle = FALSE;
+  end_read_rx_char_handle = FALSE;
+  end_of_global_read = FALSE;
+  char_no=0;
+  rx_handle[0] = 0;
+  rx_handle[1] = 0;
+  rx_handle[2] = 0;
+}
 
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_Task1 */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the Task1proc thread.
   * @param  argument: Not used
   * @retval None
   */
@@ -1002,58 +1282,22 @@ static void MX_GPIO_Init(void)
 void Task1(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  data.DevAddress= 0x3C;
-  data.hi2c = &hi2c1;
-  init_I2Cx(&data);
-  uint8_t x1,y1,x2,y2;
-  ssd1306_Init(&data);
-  ssd1306_StopScroll(&data);
-  ssd1306_Fill(Black);
-  ssd1306_SetCursor(0, 4);
-  ssd1306_WriteString("18.092.5", Font_16x24, White);
-  ssd1306_SetCursor(0, 4+24+8);
-  ssd1306_WriteString("RIT+1000", Font_16x24, White);
-       // underline
-        x1 = 6*16;
-        y1 = 4+24+8+24;
-        x2 = x1+16;
-        y2 = y1+2;
-  ssd1306_FillRectangle(x1, y1, x2, y2, White);
-  ssd1306_UpdateScreen(&data);
-  HAL_Delay(3000);
-  ssd1306_Fill(Black);
-  ssd1306_DrawCircle(SSD1306_WIDTH/2,SSD1306_HEIGHT/2,25,White);
-  ssd1306_UpdateScreen(&data);
-  int r = 5;
-  int asc =1 ;
-  for(;;)
+  /* Infinite loop */
+
+	for(;;)
   {
-
-	ssd1306_Fill(Black);
-	ssd1306_DrawCircle(SSD1306_WIDTH/2,SSD1306_HEIGHT/2,r,White);
-	//ssd1306_UpdateScreen(&data);
-	if (r <= 5) asc = 0;
-		if (asc==0)
-		{r = r+1;
-		}
-	if (r >= 30) asc = 1 ;
-	if (asc == 1)
-	{
-		r =(r -1);
-
-	}
-
-	osDelay(50);
-	ssd1306_setHscroll(&data,RightHscroll,Page0,Page4,frames_5);
-	ssd1306_StartScroll(&data);
-
+	  osSemaphoreAcquire(MutHandle,osWaitForever);
+	  User_Process();
+	  hci_user_evt_proc();
+	  osSemaphoreRelease(MutHandle);
+	  osDelay(100);
   }
   /* USER CODE END 5 */
 }
 
 /* USER CODE BEGIN Header_Task2 */
 /**
-* @brief Function implementing the myTask02 thread.
+* @brief Function implementing the Task2proc thread.
 * @param argument: Not used
 * @retval None
 */
@@ -1062,9 +1306,30 @@ void Task2(void *argument)
 {
   /* USER CODE BEGIN Task2 */
   /* Infinite loop */
+  display.DevAddress=0x3C;
+  display.hi2c=&hi2c1;
+  init_I2Cx(&display);
+  ssd1306_Init(&display);
+  osSemaphoreAcquire(T2SemHandle,osWaitForever);
   for(;;)
   {
-    osDelay(1);
+    osSemaphoreAcquire(T2SemHandle,osWaitForever);
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0,0);
+    ssd1306_WriteString("Temperature:",Font_6x8,White);
+    ssd1306_SetCursor(0, 10);
+    ssd1306_WriteString(temperature,Font_7x10,White);
+    ssd1306_SetCursor(0, 20);
+    ssd1306_WriteString("Humidity:",Font_6x8,White);
+    ssd1306_SetCursor(0, 30);
+    ssd1306_WriteString(humidity,Font_7x10,White);
+    ssd1306_SetCursor(0, 40);
+    ssd1306_WriteString("Pressure:",Font_6x8,White);
+    ssd1306_SetCursor(0, 50);
+    ssd1306_WriteString(pressure,Font_7x10,White);
+    ssd1306_UpdateScreen(&display);
+    osDelay(100);
+
   }
   /* USER CODE END Task2 */
 }

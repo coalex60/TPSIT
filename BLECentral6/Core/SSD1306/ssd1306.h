@@ -38,10 +38,7 @@ _BEGIN_STD_C
 #define SSD1306_WIDTH           128
 
 #define SSD1306_BUFFER_SIZE   (SSD1306_WIDTH * SSD1306_HEIGHT / 8)
-typedef enum {Page0,Page1,Page2,Page3,Page4,Page5,Page6,Page7} pagetype;
-typedef enum {frames_5,frames_64,frames_128,frames_256,frames_3,frames_4,frames_25,frames_2} frametype;
-#define RightHscroll 0x26
-#define LeftHscroll 0x27
+
 // Enumeration for screen colors
 typedef enum {
     Black = 0x00, // Black color, no pixel
@@ -83,8 +80,7 @@ void ssd1306_Polyline(const SSD1306_VERTEX *par_vertex, uint16_t par_size, SSD13
 void ssd1306_DrawRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color);
 void ssd1306_FillRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color);
 void ssd1306_DrawBitmap(uint8_t x, uint8_t y, const unsigned char* bitmap, uint8_t w, uint8_t h, SSD1306_COLOR color);
-void ssd1306_StartScroll(i2c_transaction * data);
-void ssd1306_StopScroll(i2c_transaction * data);
+
 /**
  * @brief Sets the contrast of the display.
  * @param[in] value contrast to set.
@@ -111,7 +107,7 @@ void ssd1306_Reset(void);
 void ssd1306_WriteCommand(i2c_transaction * data,uint8_t byte);
 void ssd1306_WriteData(i2c_transaction * data,uint8_t* buffer, size_t buff_size);
 SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len);
-void ssd1306_setHscroll(i2c_transaction * data,uint8_t mode,pagetype start_row,pagetype end_row,frametype time_interval);
+
 _END_STD_C
 
 #endif // __SSD1306_H__

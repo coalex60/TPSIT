@@ -552,35 +552,3 @@ void ssd1306_SetDisplayOn(i2c_transaction * data,const uint8_t on) {
 uint8_t ssd1306_GetDisplayOn() {
     return SSD1306.DisplayOn;
 }
-
-void ssd1306_StartScroll(i2c_transaction * data)
-{
-	uint8_t startcmd = 0x2F;
-	ssd1306_WriteCommand(data,startcmd);
-}
-
-void ssd1306_StopScroll(i2c_transaction * data)
-{
-	uint8_t stopcmd = 0x2E;
-	ssd1306_WriteCommand(data,stopcmd);
-}
-
-void ssd1306_setHscroll(i2c_transaction * data,uint8_t mode,pagetype start_row,pagetype end_row,frametype time_interval)
-{
-	uint8_t imp[7];
-	if (end_row >= start_row)
-	{
-		imp[0]=mode;
-		imp[1]=0;
-		imp[2]=start_row;
-		imp[3]=time_interval;
-		imp[4]=end_row;
-		imp[5]=0;
-		imp[6]=0xFF;
-		data->tx_len = 7;
-		data->tx_buf = (void *)imp;
-		data->rx_len =0;
-		data->rx_buf = NULL;
-		i2c_transfer(data);
-	}
-}
