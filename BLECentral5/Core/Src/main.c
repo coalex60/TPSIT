@@ -58,7 +58,7 @@ uint16_t rx_handle[3]; //array of three handle of characteristics
 uint8_t char_no=0;//number of characteristic {0 = temperature,1= pressure,2=humidity
 uint8_t end_of_global_read = FALSE; //flag for end of reading characteristics
 uint8_t end_print = FALSE;//flag for end of print out data over serial terminal
-uint8_t Characteristics[3][2] = {{0x6E,0x2A},{0x6D,0x2A},{0x6F,0x2A}}; //array with UUID in short format (order inverted)
+uint8_t Characteristics[3][2] = {{0x6E,0x2A},{0x6D,0x2A},{0x6F,0x2A}}; //array with UUID in short format (inverted order )
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -1117,29 +1117,20 @@ void enableNotification(void)
   uint8_t client_char_conf_data[] = {0x01, 0x00}; // Enable notifications
 
   uint32_t tickstart = HAL_GetTick();
-
+//charatheristic handle +2 = charateristic client descriptor,configuration handle (v.pag 71 PM0237 manual)
   while(aci_gatt_write_charac_descriptor(connection_handle, rx_handle[char_no]+2, 2, client_char_conf_data)==BLE_STATUS_NOT_ALLOWED)
   {
     /* Radio is busy */
-    if ((HAL_GetTick() - tickstart) > (10*HCI_DEFAULT_TIMEOUT_MS)) break;
+    if ((HAL_GetTick() - tickstart) > (10*HCI_DEFAULT_TIMEOUT_MS)) break;//timeout ??
   }
 
-  /*while(aci_gatt_write_charac_descriptor(connection_handle, rx_handle[char_no+1]+2, 2, client_char_conf_data)==BLE_STATUS_NOT_ALLOWED)
-    {
 
-      if ((HAL_GetTick() - tickstart) > (10*HCI_DEFAULT_TIMEOUT_MS)) break;
-    }
-  while(aci_gatt_write_charac_descriptor(connection_handle, rx_handle[char_no+2]+2, 2, client_char_conf_data)==BLE_STATUS_NOT_ALLOWED)
-    {
-
-      if ((HAL_GetTick() - tickstart) > (10*HCI_DEFAULT_TIMEOUT_MS)) break;
-    }*/
   notification_enabled = TRUE;
 }
 
 void GATT_Notification_CB(uint16_t attr_handle, uint8_t attr_len, uint8_t *attr_value)
 {
-  if (attr_handle == rx_handle[0]+1) {
+  if (attr_handle == rx_handle[0]+1) { //charateristic handle +1 = value handle
     receiveData(attr_handle,attr_value, attr_len);
   }
   if (attr_handle == rx_handle[1]+1) {
@@ -1218,10 +1209,10 @@ void Task1(void *argument)
 
 	for(;;)
   {
-	  osSemaphoreAcquire(MutHandle,osWaitForever);
+	  //osSemaphoreAcquire(MutHandle,osWaitForever);
 	  User_Process();
 	  hci_user_evt_proc();
-	  osSemaphoreRelease(MutHandle);
+	  //osSemaphoreRelease(MutHandle);
 	  osDelay(1);
   }
   /* USER CODE END 5 */
