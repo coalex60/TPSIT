@@ -1203,13 +1203,13 @@ bdaddr[4],
 bdaddr[3],
 bdaddr[2],
 bdaddr[1],
-bdaddr[0]//Ble address
+bdaddr[0],//Ble address
 };
 manuf_data[18]|=0x01; //Sensor fusion ?
 //Used to set the data used in advertising packets that have a data field.
-
-/* disable scan response: passive scan */
-hci_le_set_scan_resp_data(0,NULL);//?
+/* adding evironmental service to scan response : active scan */
+const uint8_t scan_resp_data[] = {0x03,0x03,0x1A,0x18};//environmental service
+hci_le_set_scan_resp_data(sizeof(scan_resp_data),scan_resp_data);//service advertising data
 //set General discoverable Mode
 
 ret = aci_gap_set_discoverable(ADV_DATA_TYPE,(ADV_INTERVAL_MIN_MS * 1000)/625, (ADV_INTERVAL_MAX_MS * 1000)/625,
