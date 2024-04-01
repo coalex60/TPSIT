@@ -48,8 +48,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define  ADV_INTERVAL_MIN_MS  800
-#define  ADV_INTERVAL_MAX_MS  900
+#define  ADV_INTERVAL_MIN_MS  1000
+#define  ADV_INTERVAL_MAX_MS  1200
 #define  CONN_INTERVAL_MIN_MS 100
 #define  CONN_INTERVAL_MAX_MS 300
 
@@ -208,6 +208,7 @@ int main(void)
   char *name = "STM32BLE";
   char local_name[] ={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
   uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
+
   //initializations
   hci_init(user_notify,NULL);
   hci_reset();
@@ -235,10 +236,10 @@ int main(void)
 //set power level									   
   ret = aci_hal_set_tx_power_level(1,4);
   
-  ret = aci_gap_set_discoverable(ADV_DATA_TYPE,
-                                  (ADV_INTERVAL_MIN_MS*1000)/625,(ADV_INTERVAL_MAX_MS*1000)/625,
-                                   STATIC_RANDOM_ADDR, NO_WHITE_LIST_USE,
-								   sizeof(local_name), local_name, 0, NULL, 0, 0);
+//  ret = aci_gap_set_discoverable(ADV_DATA_TYPE,
+//                                  (ADV_INTERVAL_MIN_MS*1000)/625,(ADV_INTERVAL_MAX_MS*1000)/625,
+//                                   STATIC_RANDOM_ADDR, NO_WHITE_LIST_USE,
+//								   sizeof(local_name), local_name, 0,  NULL, 0, 0);
 
 
   /* Add_HWServW2ST_Service */
