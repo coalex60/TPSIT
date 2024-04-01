@@ -247,10 +247,10 @@ int main(void)
   /* Add_HWServW2ST_Service */
   ret = aci_gatt_add_serv(UUID_TYPE_16, HW_Service_Sens_UUID, PRIMARY_SERVICE,
                             1+3*5, &HWServW2STHandle);
-  //add HW charateristic
+  //add HW characteristic
 
 
- //temperature charateristic
+ //temperature characteristic
   ret =  aci_gatt_add_char(HWServW2STHandle, UUID_TYPE_16,TemperatureChar_UUID ,
                              2,
                              CHAR_PROP_NOTIFY|CHAR_PROP_READ,
