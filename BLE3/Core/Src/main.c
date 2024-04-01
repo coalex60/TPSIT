@@ -121,11 +121,9 @@ uint8_t PressureChar_UUID[2] = {0x6D,0x2A};//UUID short for Pressure Charatersit
 uint8_t HumidityChar_UUID[2] = {0x6F,0x2A};//UUID short for Humidity Charatersitic
 
 
-uint8_t HW_Char_Envir_UUID[16] ={0x01b,0xc5,0xd5,0xa5,0x02,0x00,0x36,0xac,0xe1,0x11,0x01,0x00,0x00,0x00,0x00,0x00};
-
 //handles
 uint16_t HWServW2STHandle, EnvironmentalCharHandle,TempCharHandle,PressCharHandle,HumCharHandle;
-//data
+//flags
 uint8_t connected = FALSE,connectable = TRUE, notification_enabled = FALSE;
 uint8_t bdaddr[6];//mac address of bluetooth device
 calibVal cal; //calibration value for temperature sensor
@@ -211,7 +209,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   tBleStatus ret;
   uint8_t bdaddr_len_out;
-  //char *name = "STM32BLE";
   char local_name[] ={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
   uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
   //initializations
@@ -226,9 +223,6 @@ int main(void)
   ret = aci_hal_read_config_data(CONFIG_DATA_RANDOM_ADDRESS, 6, &bdaddr_len_out, bdaddr);
 
 
-  //update charatersitic value in a service ??
-
- // ret = aci_gatt_update_char_value(service_handle,dev_name_char_handle,0,strlen(name),(uint8_t *)name);
 //aci_gap_set_authentication_requirement
   ret = aci_gap_set_auth_requirement(MITM_PROTECTION_REQUIRED,
                                        OOB_AUTH_DATA_ABSENT,
@@ -241,10 +235,10 @@ int main(void)
 //set power level									   
   ret = aci_hal_set_tx_power_level(1,5);//power of +1.4dbm
   
-  ret = aci_gap_set_discoverable(ADV_DATA_TYPE,
-                                  (ADV_INTERVAL_MIN_MS*1000)/625,(ADV_INTERVAL_MAX_MS*1000)/625,
-                                   STATIC_RANDOM_ADDR, NO_WHITE_LIST_USE,
-								   sizeof(local_name), local_name, 0, NULL, 0, 0);
+  //ret = aci_gap_set_discoverable(ADV_DATA_TYPE,
+  //                                (ADV_INTERVAL_MIN_MS*1000)/625,(ADV_INTERVAL_MAX_MS*1000)/625,
+  //                                 STATIC_RANDOM_ADDR, NO_WHITE_LIST_USE,
+//								   sizeof(local_name), local_name, 0, NULL, 0, 0);
 
 
   /* Add_HWServW2ST_Service */
@@ -1191,11 +1185,12 @@ void User_Process(void)
 
 void Set_DeviceConnectable(void)
 {
-uint8_t ret;
+uint8_t Servicelist[] ={AD_TYPE_16_BIT_SERV_UUID,0x1A,0x18};
+tBleStatus ret;
 const char local_name[]={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
 uint8_t manuf_data[26]={2,0x0A,0x01,  //Transmisson power
 8,0x09,'S','T','M','D','E','M','O',//Complete name
-13,0xFF,0x01,//SKD version
+13,0xFF,0x01,//SKD version 	; i dati 0xFF sono quelli del costruttore (in questo caso 13 bytes)
 0x80,
 0x00,
 0x14 |0x08,//0x04 temp |0x10 Pressure |0x08 Humidity
@@ -1214,9 +1209,10 @@ manuf_data[18]|=0x01; //Sensor fusion ?
 /* disable scan response: passive scan */
 hci_le_set_scan_resp_data(0,NULL);//?
 //set General discoverable Mode
-ret = aci_gap_set_discoverable(ADV_DATA_TYPE,(ADV_INTERVAL_MIN_MS * 1000)/625, (ADV_INTERVAL_MAX_MS * 1000)/625,
-		STATIC_RANDOM_ADDR,NO_WHITE_LIST_USE, sizeof(local_name), local_name,0,NULL,0,0);
 
+ret = aci_gap_set_discoverable(ADV_DATA_TYPE,(ADV_INTERVAL_MIN_MS * 1000)/625, (ADV_INTERVAL_MAX_MS * 1000)/625,
+		//STATIC_RANDOM_ADDR,NO_WHITE_LIST_USE, sizeof(local_name), local_name,sizeof(Servicelist),Servicelist,0,0);
+		STATIC_RANDOM_ADDR,NO_WHITE_LIST_USE, sizeof(local_name), local_name,0,NULL,0,0);
 aci_gap_update_adv_data(26,manuf_data);//set advertising data
 
 }
