@@ -205,8 +205,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   tBleStatus ret;
   uint8_t bdaddr_len_out;
-  char *name = "STM32BLE";
-  char local_name[] ={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
+  char *name = "STMDEMO";
   uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
 
   //initializations
