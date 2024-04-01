@@ -209,7 +209,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   tBleStatus ret;
   uint8_t bdaddr_len_out;
-  char local_name[] ={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
+  char *name = "STMDEMO";
   uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
   //initializations
   hci_init(user_notify,NULL);
@@ -219,6 +219,9 @@ int main(void)
   //Register the GAP service with the GATT. All the standard GAP characteristics will also be added:
   //•Device Name  //•Appearance //•Peripheral Preferred Connection Parameters (peripheral role only)
   ret = aci_gap_init_IDB05A1(GAP_PERIPHERAL_ROLE_IDB05A1,PRIVACY_DISABLED,0x08,&service_handle,&dev_name_char_handle,&appearance_char_handle);
+  //Update carateristic value
+  ret = aci_gatt_update_char_value(service_handle, dev_name_char_handle, 0,strlen(name), (uint8_t *)name);
+
   //read configuration data (address of device)
   ret = aci_hal_read_config_data(CONFIG_DATA_RANDOM_ADDRESS, 6, &bdaddr_len_out, bdaddr);
 
@@ -1185,7 +1188,6 @@ void User_Process(void)
 
 void Set_DeviceConnectable(void)
 {
-uint8_t Servicelist[] ={AD_TYPE_16_BIT_SERV_UUID,0x1A,0x18};
 tBleStatus ret;
 const char local_name[]={AD_TYPE_COMPLETE_LOCAL_NAME,'S','T','M','D','E','M','O'};
 uint8_t manuf_data[26]={2,0x0A,0x01,  //Transmisson power
@@ -1211,8 +1213,8 @@ hci_le_set_scan_resp_data(0,NULL);//?
 //set General discoverable Mode
 
 ret = aci_gap_set_discoverable(ADV_DATA_TYPE,(ADV_INTERVAL_MIN_MS * 1000)/625, (ADV_INTERVAL_MAX_MS * 1000)/625,
-		//STATIC_RANDOM_ADDR,NO_WHITE_LIST_USE, sizeof(local_name), local_name,sizeof(Servicelist),Servicelist,0,0);
 		STATIC_RANDOM_ADDR,NO_WHITE_LIST_USE, sizeof(local_name), local_name,0,NULL,0,0);
+
 aci_gap_update_adv_data(26,manuf_data);//set advertising data
 
 }
