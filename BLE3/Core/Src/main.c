@@ -246,13 +246,16 @@ int main(void)
 
   /* Add_HWServW2ST_Service */
   ret = aci_gatt_add_serv(UUID_TYPE_16, HW_Service_Sens_UUID, PRIMARY_SERVICE,
-                            1+3*5, &HWServW2STHandle);
+                            1+3*3/**5*/, &HWServW2STHandle);
+ // 1 for the service itself, 3 records for each characteristic : 1 is used for characteristic declaration
+ // 1 is used for the characteristic value, 1 is used for CCC descriptor for notification configuration
+
   //add HW characteristic
 
 
  //temperature characteristic
   ret =  aci_gatt_add_char(HWServW2STHandle, UUID_TYPE_16,TemperatureChar_UUID ,
-                             2,
+                             2,  //size in bytes for data
                              CHAR_PROP_NOTIFY|CHAR_PROP_READ,
                              ATTR_PERMISSION_NONE,
                              GATT_NOTIFY_READ_REQ_AND_WAIT_FOR_APPL_RESP,
